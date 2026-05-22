@@ -1,0 +1,8 @@
+# Bluesky Event — handles list
+# One handle per line. Lines starting with # are ignored.
+# Replace these with your actual attendee handles.
+bsky.app
+jp.bsky.app
+status.bsky.app
+atproto.com
+safety.bsky.app
