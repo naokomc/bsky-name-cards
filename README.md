@@ -2,7 +2,7 @@
 
 Generates printable name cards for Bluesky meetup events.
 
-Each card shows the participant's Bluesky avatar (circular), their handle, a name-writing field, and the event footer with the Bluesky butterfly logo.
+Each card shows the participant's Bluesky avatar (circular), their handle, a QR code linking to their profile, a name-writing field, and the event footer with the Bluesky butterfly logo.
 
 Most of the following defaults can be overridden:
 
@@ -31,6 +31,7 @@ pip install -r requirements.txt
 | `requests`  | Fetch avatar images from the Bluesky public API |
 | `Pillow`    | Circular crop and image compositing             |
 | `reportlab` | PDF generation                                  |
+| `qrcode`   | QR code generation for profile links             |
 
 
 ### Optional: Inter font
@@ -92,9 +93,9 @@ safety.bsky.app
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│            @handle.bsky.social                      │  ← HANDLE_H zone (11 mm)
-├─────────────────────────────────────────────────────│
-│  ╭──────╮   Name                                    │  ← MIDDLE zone (30 mm)
+│            @handle.bsky.social              ┌────┐  │  ← HANDLE_H zone (11 mm)
+├─────────────────────────────────────────────│ QR │──│
+│  ╭──────╮   Name                            └────┘  │  ← MIDDLE zone (30 mm)
 │  │avatar│   ─────────────────────────────────────   │
 │  ╰──────╯                                           │
 ├─────────────────────────────────────────────────────│
@@ -118,6 +119,7 @@ Everything is configurable via CLI flags — no need to edit the source file.
 | `--card PRESET        | WxH`                                       | Card size: `meishi`, `4x3`, or `100x60` (mm) |
 | `--paper a4           | letter`                                    | Paper size                                   |
 | `--no-logo`           | Omit the Bluesky butterfly logo            | logo shown                                   |
+| `--no-qr`             | Omit the QR code from participant cards     | QR shown                                     |
 
 
 To use a different butterfly logo, edit the `BUTTERFLY_SVG` constant near the top of the script.
@@ -153,7 +155,7 @@ MIT
 
 Bluesky イベント用の印刷可能なネームカードを生成するスクリプトです。
 
-各カードには、参加者の Bluesky アバター（正円）、ハンドル名、名前記入欄、そしてイベント名と Bluesky ロゴ入りのフッターが表示されます。
+各カードには、参加者の Bluesky アバター（正円）、ハンドル名、プロフィールへの QR コード、名前記入欄、そしてイベント名と Bluesky ロゴ入りのフッターが表示されます。
 
 以下のデフォルト設定はオプションで変更できます。
 
@@ -180,7 +182,7 @@ pip install -r requirements.txt
 | `requests`  | Bluesky 公開 API からアバター画像を取得 |
 | `Pillow`    | アバターの正円クロップと画像合成           |
 | `reportlab` | PDF 生成                     |
-| `cairosvg`  | SVG ロゴのラスタライズ              |
+| `qrcode`   | プロフィールリンクの QR コード生成         |
 
 
 ### オプション：Inter フォント
@@ -234,9 +236,9 @@ bsky.app
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│            @handle.bsky.social                      │  ← ハンドルゾーン (11 mm)
-├─────────────────────────────────────────────────────│
-│  ╭──────╮   Name                                    │  ← 中央ゾーン (30 mm)
+│            @handle.bsky.social              ┌────┐  │  ← ハンドルゾーン (11 mm)
+├─────────────────────────────────────────────│ QR │──│
+│  ╭──────╮   Name                            └────┘  │  ← 中央ゾーン (30 mm)
 │  │アバター│  ─────────────────────────────────────    │
 │  ╰──────╯                                           │
 ├─────────────────────────────────────────────────────│
@@ -260,6 +262,7 @@ bsky.app
 | `--card PRESET        | WxH`                | カードサイズ：`meishi`、`4x3`、または `100x60`（mm） |
 | `--paper a4           | letter`             | 用紙サイズ                                  |
 | `--no-logo`           | Bluesky ロゴを非表示にする   | ロゴあり                                   |
+| `--no-qr`             | QR コードを非表示にする      | QR あり                                   |
 
 
 別のロゴを使用する場合は、スクリプト冒頭の `BUTTERFLY_SVG` 定数を変更してください。

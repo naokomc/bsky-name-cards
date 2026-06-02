@@ -22,6 +22,8 @@ try:
 except ImportError:
     _HAS_CAIROSVG = False
     print("  ⚠ cairosvg not found — butterfly logo will be omitted. Run: pip install cairosvg")
+import qrcode
+from qrcode.image.pil import PilImage as _QRPilImage
 from PIL import Image, ImageDraw, ImageFont
 from reportlab.lib.pagesizes import A4, letter as LETTER
 from reportlab.lib.units import mm
@@ -167,6 +169,10 @@ NAME_LABEL = "Name"
 PRESS_COUNT_DEFAULT = 4
 BLANK_COUNT_DEFAULT = 8
 
+# ── QR code ──────────────────────────────────────────────────────────────────
+QR_SIZE_MM = 12.0    # QR code square size (mm) — top-right corner
+QR_PAD_MM  = 1.5     # padding from card edges
+
 
 # ── Layout configurator ───────────────────────────────────────────────────────
 
@@ -185,6 +191,7 @@ def configure_layout(card_w_mm: float, card_h_mm: float,
     global NAME_LINE_Y, NAME_LABEL_Y, TEXT_LEFT, TEXT_RIGHT
     global FOOTER_FS, LOGO_H_MM
     global HANDLE_FS_DEFAULT, PRESS_FS_DEFAULT
+    global QR_SIZE_MM, QR_PAD_MM
 
     sh = card_h_mm / 53.0   # height scale vs. meishi baseline
     sw = card_w_mm / 89.0   # width  scale vs. meishi baseline
@@ -220,6 +227,9 @@ def configure_layout(card_w_mm: float, card_h_mm: float,
     HANDLE_FS_DEFAULT = round(11.5 * min(sh, sw), 1)
     PRESS_FS_DEFAULT  = round(50.0 * sh, 1)
 
+    QR_SIZE_MM = round(12.0 * min(sh, sw), 2)
+    QR_PAD_MM  = round(1.5  * min(sh, sw), 2)
+
 
 # ── Raster settings ───────────────────────────────────────────────────────────
 BSKY_API = "https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile"
@@ -234,10 +244,10 @@ def fetch_profile(handle: str) -> dict:
         r = requests.get(BSKY_API, params={"actor": handle}, timeout=15)
         r.raise_for_status()
         data = r.json()
-        return {"handle": handle, "avatar_url": data.get("avatar")}
+        return {"handle": handle, "avatar_url": data.get("avatar"), "did": data.get("did")}
     except Exception as exc:
         print(f"  ⚠ @{handle}: {exc}", file=sys.stderr)
-        return {"handle": handle, "avatar_url": None}
+        return {"handle": handle, "avatar_url": None, "did": None}
 
 
 def download_image(url: str) -> "Optional[Image.Image]":
@@ -290,6 +300,21 @@ def pil_to_temp_png(img: Image.Image) -> str:
     img.save(tmp.name, "PNG")
     tmp.close()
     return tmp.name
+
+
+def make_qr_code(handle: str, px: int, did: "Optional[str]" = None) -> Image.Image:
+    """Generate a QR code PNG for the Bluesky profile URL (DID-based if available), sized to px×px."""
+    url = f"https://bsky.app/profile/{did if did else handle}"
+    qr  = qrcode.QRCode(
+        version=None,
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        box_size=10,
+        border=0,
+    )
+    qr.add_data(url)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="#0085ff", back_color="white").convert("RGBA")
+    return img.resize((px, px), Image.LANCZOS)
 
 
 def prepare_butterfly() -> "Tuple[Optional[str], float, float]":
@@ -389,7 +414,8 @@ def draw_card(c,
               avatar_tmp: str,
               butterfly_tmp: "Optional[str]",
               logo_w_mm: float,
-              logo_h_mm: float) -> None:
+              logo_h_mm: float,
+              qr_tmp: "Optional[str]" = None) -> None:
     """Draw one card. (ox, oy) = bottom-left corner in points."""
 
     # ── cut guide ──────────────────────────────────────────────────────────
@@ -400,17 +426,26 @@ def draw_card(c,
     c.rect(ox, oy, CARD_W, CARD_H, stroke=1, fill=0)
     c.restoreState()
 
-    # ── @handle — top centre, Inter, auto-scaled, letter-spaced ───────────
+    # ── QR code — top-right corner ────────────────────────────────────────
+    qr_right_mm = 0.0
+    if qr_tmp:
+        qr_pt = QR_SIZE_MM * mm
+        qr_x  = ox + CARD_W - QR_PAD_MM * mm - qr_pt
+        qr_y  = oy + CARD_H - QR_PAD_MM * mm - qr_pt
+        c.drawImage(qr_tmp, qr_x, qr_y, qr_pt, qr_pt, mask="auto")
+        qr_right_mm = QR_SIZE_MM + QR_PAD_MM * 2   # reserved width on right
+
+    # ── @handle — top centre (shifted left to avoid QR), auto-scaled ──────
     label     = f"@{handle}"
     fs        = HANDLE_FS_DEFAULT
     fs_min    = max(5.0, HANDLE_FS_DEFAULT * 0.55)
-    max_w     = (CARD_W_MM - 2 * PAD) * mm
+    avail_w   = (CARD_W_MM - 2 * PAD - qr_right_mm) * mm
     char_sp   = 1.0
-    while fs > fs_min and (stringWidth(label, FONT_EN_BOLD, fs) + (len(label)-1)*char_sp) > max_w:
+    while fs > fs_min and (stringWidth(label, FONT_EN_BOLD, fs) + (len(label)-1)*char_sp) > avail_w:
         fs -= 0.5
 
     lw   = stringWidth(label, FONT_EN_BOLD, fs) + (len(label) - 1) * char_sp
-    tx   = ox + (CARD_W - lw) / 2
+    tx   = ox + (avail_w - lw) / 2 + PAD * mm
     ty   = oy + (CARD_H_MM - HANDLE_H / 2 - fs * 0.35) * mm
     t    = c.beginText(tx, ty)
     t.setFont(FONT_EN_BOLD, fs)
@@ -577,6 +612,7 @@ def build_pdf(profiles: list, output_path: str,
               blank_count: int = BLANK_COUNT_DEFAULT,
               event_name: str  = FOOTER_TEXT,
               show_logo: bool  = True,
+              show_qr: bool    = True,
               card_spec: str   = "meishi",
               paper: str       = "a4",
               name_label: str  = NAME_LABEL) -> None:
@@ -593,14 +629,18 @@ def build_pdf(profiles: list, output_path: str,
     butterfly_tmp, logo_w, logo_h   = prepare_butterfly() if show_logo \
                                       else (None, 0.0, 0.0)
 
-    print("\nPreparing avatar images…")
+    qr_px = int(QR_SIZE_MM / 25.4 * DPI) if show_qr else 0
+
+    print("\nPreparing avatar images" + (" & QR codes" if show_qr else "") + "…")
     cards = []
     for p in profiles:
         handle = p["handle"]
         raw    = download_image(p["avatar_url"]) if p["avatar_url"] else None
         circ   = make_circular_avatar(raw, avatar_px) if raw \
                  else make_placeholder(avatar_px, handle)
-        cards.append((handle, pil_to_temp_png(circ)))
+        did    = p.get("did")
+        qr_tmp = pil_to_temp_png(make_qr_code(handle, qr_px, did)) if show_qr else None
+        cards.append((handle, pil_to_temp_png(circ), qr_tmp))
         print(f"  ✓ @{handle}")
 
     c     = rl_canvas.Canvas(output_path, pagesize=(PAGE_W, PAGE_H))
@@ -610,13 +650,13 @@ def build_pdf(profiles: list, output_path: str,
         if page > 0:
             c.showPage()
         batch = cards[page * PER_PAGE : (page + 1) * PER_PAGE]
-        for idx, (handle, avatar_tmp) in enumerate(batch):
+        for idx, (handle, avatar_tmp, qr_tmp) in enumerate(batch):
             col = idx % COLS
             row = idx // COLS
             ox  = MARGIN_X + col * CARD_W
             oy  = PAGE_H - MARGIN_Y - (row + 1) * CARD_H
             draw_card(c, ox, oy, handle, avatar_tmp,
-                      butterfly_tmp, logo_w, logo_h)
+                      butterfly_tmp, logo_w, logo_h, qr_tmp)
 
     # ── PRESS cards appended after participant cards ──────────────────────
     offset = len(cards)
@@ -651,9 +691,10 @@ def build_pdf(profiles: list, output_path: str,
 
     c.save()
 
-    for _, tmp in cards:
-        try: os.unlink(tmp)
-        except OSError: pass
+    for item in cards:
+        for tmp in item[1:]:   # avatar_tmp, qr_tmp
+            try: os.unlink(tmp)
+            except OSError: pass
     if butterfly_tmp:
         try: os.unlink(butterfly_tmp)
         except OSError: pass
@@ -719,6 +760,8 @@ def parse_args():
                    help=f'Label above the name field (default: "{NAME_LABEL}")')
     p.add_argument("--no-logo", action="store_true",
                    help="Omit the Bluesky butterfly logo from the footer")
+    p.add_argument("--no-qr", action="store_true",
+                   help="Omit the QR code from participant cards")
     return p.parse_args()
 
 
@@ -758,6 +801,7 @@ def main():
               blank_count=max(0, args.blank),
               event_name=args.event,
               show_logo=not args.no_logo,
+              show_qr=not args.no_qr,
               card_spec=args.card,
               paper=args.paper,
               name_label=args.name_label)
