@@ -79,7 +79,7 @@ One handle per line. Lines starting with `#` are treated as comments.
 Handles can include or omit the leading `@`.
 
 ```
-# Bluesky Meetup in Tokyo Vol. 4
+# Bluesky Meetup
 bsky.app
 jp.bsky.app
 status.bsky.app
@@ -112,12 +112,12 @@ Everything is configurable via CLI flags — no need to edit the source file.
 
 | Flag                  | Description                                | Default                                      |
 | --------------------- | ------------------------------------------ | -------------------------------------------- |
-| `--event "TEXT"`      | Event name in the footer                   | `Bluesky Meetup in Tokyo Vol. 4`             |
+| `--event "TEXT"`      | Event name in the footer                   | `Bluesky Meetup`                             |
 | `--name-label "TEXT"` | Label above the name field                 | `Name`                                       |
 | `--press N`           | Number of PRESS cards appended (0 to omit) | `4`                                          |
 | `--blank N`           | Number of blank cards appended (0 to omit) | `8`                                          |
-| `--card PRESET        | WxH`                                       | Card size: `meishi`, `4x3`, or `100x60` (mm) |
-| `--paper a4           | letter`                                    | Paper size                                   |
+| `--card PRESET\|WxH`  | Card size: `meishi`, `4x3`, or `100x60` (mm) | `meishi`                                   |
+| `--paper a4\|letter`  | Paper size                                 | `a4`                                         |
 | `--no-logo`           | Omit the Bluesky butterfly logo            | logo shown                                   |
 | `--no-qr`             | Omit the QR code from participant cards     | QR shown                                     |
 
@@ -207,7 +207,7 @@ python3 bluesky_name_cards.py --file handles.txt --output cards.pdf
 テストなどで1枚だけ生成する場合は、ハンドル名を直接指定してください。
 
 ```bash
-python3 bluesky_name_cards.py example.bsky.social --output test.pdf
+python3 bluesky_name_cards.py example.bsky.social --press 0 --blank 0 --output test.pdf
 ```
 
 ### 複数ハンドルをインラインで指定
@@ -224,7 +224,7 @@ python3 bluesky_name_cards.py example.bsky.social bsky.app --output test.pdf
 ハンドルは `@` あり・なし、どちらの形式でも対応しています。
 
 ```
-# Bluesky Meetup in Tokyo Vol. 4
+# Bluesky Meetup
 jay.bsky.social
 pfrazee.com
 bsky.app
@@ -255,12 +255,12 @@ bsky.app
 
 | オプション                 | 説明                  | デフォルト                                  |
 | --------------------- | ------------------- | -------------------------------------- |
-| `--event "テキスト"`      | フッターに表示するイベント名      | `Bluesky Meetup in Tokyo Vol. 4`       |
+| `--event "テキスト"`      | フッターに表示するイベント名      | `Bluesky Meetup`                       |
 | `--name-label "テキスト"` | 名前記入欄のラベル           | `Name`                                 |
 | `--press N`           | PRESS カードの枚数（0 で省略） | `4`                                    |
 | `--blank N`           | 空欄カードの枚数（0 で省略）     | `8`                                    |
-| `--card PRESET        | WxH`                | カードサイズ：`meishi`、`4x3`、または `100x60`（mm） |
-| `--paper a4           | letter`             | 用紙サイズ                                  |
+| `--card PRESET\|WxH`  | カードサイズ：`meishi`、`4x3`、または `100x60`（mm） | `meishi`                              |
+| `--paper a4\|letter`  | 用紙サイズ                                   | `a4`                                   |
 | `--no-logo`           | Bluesky ロゴを非表示にする   | ロゴあり                                   |
 | `--no-qr`             | QR コードを非表示にする      | QR あり                                   |
 
